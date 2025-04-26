@@ -1,56 +1,62 @@
 #!/bin/bash
 
 if [ "$#" -lt 2 ]; then
-    echo "Usage: $0 <input_dir> <output_dir> [--max_depth DEPTH]"
+    echo "Usage: $0 <input_dir> <output_dir> [--max_depth DEPTH]" >&2
     exit 1
 fi
-
 
 input_dir="$1"
 output_dir="$2"
 max_depth=""
 
-if [ "$#" -ge 3 ] && [ "$3" == "--max_depth" ]; then
-    if [ -z "$4" ]; then
-        echo "Error: --max_depth requires a depth value"
-        exit 1
-    fi
+if [ ! -d "$input_dir" ]; then
+    echo "Error: Input directory does not exist" >&2
+    exit 1
+fi
+
+if [ "$#" -ge 4 ] && [ "$3" == "--max_depth" ]; then
     max_depth="$4"
+elif [ "$#" -eq 3 ]; then
+    echo "Error: --max_depth requires a depth value" >&2
+    exit 1
 fi
 
 mkdir -p "$output_dir"
 
-python3 -c "
-import os
-import sys
-from shutil import copyfile
+copy_files() {
+    local src="$1"
+    local dest="$2"
+    local depth="$3"
 
-input_dir = sys.argv[1]
-output_dir = sys.argv[2]
-max_depth = sys.argv[3] if len(sys.argv) > 3 else None
-
-file_counters = {}
-
-def collect_files(current_dir, current_depth):
-    if max_depth is not None and current_depth > int(max_depth):
+    if [ -n "$max_depth" ] && [ "$depth" -gt "$max_depth" ]; then
         return
+    fi
 
-    for item in os.listdir(current_dir):
-        item_path = os.path.join(current_dir, item)
-        if os.path.isdir(item_path):
-            collect_files(item_path, current_depth + 1)
-        else:
-            base, ext = os.path.splitext(item)
-            new_filename = item
+    for item in "$src"/*; do
+        if [ -d "$item" ]; then
+            copy_files "$item" "$dest" $((depth + 1))
+        elif [ -f "$item" ]; then
+            filename=$(basename "$item")
+            counter=1
+            new_filename="$filename"
 
-            if new_filename in file_counters:
-                file_counters[new_filename] += 1
-                new_filename = f'{base}_{file_counters[new_filename]}{ext}'
-            else:
-                file_counters[new_filename] = 0
+            while [ -e "$dest/$new_filename" ]; do
+                extension="${filename##*.}"
+                base="${filename%.*}"
+                if [[ "$base" != "$filename" ]]; then
+                    new_filename="${base}_${counter}.${extension}"
+                else
+                    new_filename="${filename}_${counter}"
+                fi
+                ((counter++))
+            done
 
-            output_path = os.path.join(output_dir, new_filename)
-            copyfile(item_path, output_path)
+            cp "$item" "$dest/$new_filename"
+        fi
+    done
+}
 
-collect_files(input_dir, 0)
-" "$input_dir" "$output_dir" "$max_depth"
+# Запускаем копирование
+copy_files "$input_dir" "$output_dir" 0
+
+exit 0
