@@ -5,6 +5,7 @@ if [ "$#" -lt 2 ]; then
     exit 1
 fi
 
+
 input_dir="$1"
 output_dir="$2"
 max_depth=""
