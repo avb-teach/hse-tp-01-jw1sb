@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 if [ "$#" -lt 2 ]; then
     echo "Usage: $0 <input_dir> <output_dir> [--max_depth DEPTH]" >&2
     exit 1
@@ -56,7 +57,6 @@ copy_files() {
     done
 }
 
-# Запускаем копирование
 copy_files "$input_dir" "$output_dir" 0
 
 exit 0
